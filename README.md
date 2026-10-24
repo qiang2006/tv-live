@@ -47,20 +47,48 @@ Gitee 那个仓库是**独立的小仓库**，只放列表，和 `suishoubao` / 
 
 ## 更新方法
 
+### 平时不用管：每周一凌晨自动跑
+
+已注册计划任务 **`TV2-LivePublish`**（每周一 04:00），动作是 `tools\publish_live_all.ps1`：
+
+```
+合并 5 个公开源 -> 逐条 ffprobe 验源 -> 安全闸 -> 写 live/live.m3u
+-> git 提交 -> 推 Gitee + GitHub -> purge jsDelivr
+```
+
+它**完全不碰盒子** —— 盒子每次开机自己拉。所以跑完这一遍，老人那边下次开机就生效，
+既不用推给盒子，也不会打断正在看的电视。
+
+**安全闸**（防止上游某天整体抽风，把一份"少了很多台"的列表发出去）：
+验出条数低于 **120**，或比**当前已发布**少 **15% 以上**，就直接中止 ——
+不写文件、不提交、不推送，只在日志里留 `RESULT aborted`。
+
+验源带**一轮重试**：失败的线路会用更长的超时复测，成功的捡回来 ——
+公共源经常只是"这一下没连上"（`timeout` / ECONNRESET），一次判死会白丢一批台。
+
+```powershell
+.\tools\install-live-task.ps1 -Status        # 触发器 / 上次结果 / 下次运行
+.\tools\publish_live_all.ps1 -DryRun         # 只验源不发布，先看条数
+.\tools\install-live-task.ps1 -Run           # 立刻跑一次
+Get-Content .\logs\live-publish.log -Tail 30 # 看日志
+```
+
+### 想手动来一遍（等价于计划任务做的事）
+
 ```powershell
 cd F:\TV2
+.\tools\publish_live_all.ps1
+```
 
-# 1) 重新合并公开源 + 逐条验源 + 推给盒子（几分钟）
+### 老的、会碰盒子的流程（只有在需要"立刻推给某一台盒子"时才用）
+
+```powershell
+# 1) 合并 + 验源 + 直接推给盒子（会重启播放器，别在老人看电视时跑）
 .\tools\refresh_live.ps1 -Box 192.168.2.134
-
 # 2) 把盒子上"正在用"的那份抓回仓库（自动校验、不会拉错文件）
 .\tools\publish_live.ps1 -Box 192.168.2.134 -Commit
-
-# 3) 推主仓库（注意：这条对 Gathin23/cleanyourtv 会 403，见下方说明）
-git push
-
-# 4) 推两个"只放列表"的小仓库（subtree，不会带上代码和文档）
-git subtree push --prefix=live gitee main                                   # Gitee 主源
+# 3) 推两个"只放列表"的小仓库（subtree，不会带上代码和文档）
+git subtree push --prefix=live gitee main                                    # Gitee 主源
 git subtree push --prefix=live https://github.com/qiang2006/tv-live.git main # GitHub 兜底
 ```
 
@@ -86,7 +114,8 @@ https://purge.jsdelivr.net/gh/qiang2006/tv-live@main/live.m3u
 那个仓库是**主项目**（260+ 机型、2000+ 提交、还在被别人活跃开发），而本机这个工作副本
 `git rev-list --count` 显示 **落后 2079 个提交**。往里推 main 会被拒（非快进），强推会毁掉整个项目。
 所以列表改推到**独立小仓库** `qiang2006/tv-live`，和 Gitee 那个完全对称。
-`git push`（第 3 步）对那个仓库仍会 403，属于预期 —— 列表发布不依赖它。
+往 `Gathin23/cleanyourtv` 推仍然会 403，属于预期 —— 列表发布不依赖它
+（自动流程里根本不推主仓库，只推两个小仓库）。
 
 ## 注意
 
