@@ -4,35 +4,34 @@
 
 ## 盒子怎么用它
 
-开机时 `/system/bin/tv2-maint.sh` 会按顺序试这几个地址（`REMOTES`）：
+开机时 `/system/bin/tv2-maint.sh` 会按顺序试这两个地址（`REMOTES`，空格分隔）：
 
 ```
-https://cdn.jsdelivr.net/gh/Gathin23/cleanyourtv@main/live/live.m3u
+1. https://gitee.com/wodegitee33/tv-live/raw/main/live.m3u          ← 主源（国内直连）
+2. https://cdn.jsdelivr.net/gh/Gathin23/cleanyourtv@main/live/live.m3u  ← 兜底
 ```
 
 校验（首行 `#EXTM3U`、`#EXTINF` 不少于 50 条）通过才**原子替换**盒子上的本地列表；
 第一个源失败就试下一个，**全失败就保留旧列表**，电视照常能看，不会弹任何提示。
 
-> 仓库原来叫 `tv-vibehack`，已改名为 `cleanyourtv`。旧名字还能用（GitHub 做重定向），
-> 但那是重定向，一旦有人抢注 `tv-vibehack`，jsDelivr 就会拉到别人的东西 —— 所以盒子里用的是新名字。
+实测（2026-10-24，真机）：
 
-### 加一个 Gitee 镜像（可选，国内更快）
-
-GitHub/jsDelivr 在国内偶尔被 DNS 污染或限速，加一条 Gitee 源就是免费的冗余：
-
-```powershell
-git remote add gitee https://gitee.com/<你的用户名>/<仓库名>.git
-git push gitee main
+```
+playlist updated: 172 channels (https://gitee.com/wodegitee33/tv-live/raw/main/live.m3u, OK 33312)
 ```
 
-然后在盒子上把地址填进去（空格分隔，按优先级从高到低）：
+> GitHub 那边的仓库原来叫 `tv-vibehack`，已改名为 `cleanyourtv`。旧名字还能用（GitHub 做重定向），
+> 但那是重定向，一旦有人抢注 `tv-vibehack`，jsDelivr 就会拉到别人的东西 —— 所以写的是新名字。
 
-```sh
-adb shell "sed -i 's|^REMOTES_DEFAULT=.*|REMOTES_DEFAULT=\"https://gitee.com/<用户名>/<仓库名>/raw/main/live/live.m3u https://cdn.jsdelivr.net/gh/Gathin23/cleanyourtv@main/live/live.m3u\"|' /system/bin/tv2-maint.sh"
-```
+## 两个源分别在哪
 
-要求：**Gitee 仓库必须是公开的**（盒子不带任何凭据，私有仓库的 raw 要登录）。
-地址格式是 `/raw/<分支>/<路径>`，和 GitHub 的 raw 不一样，别写错。
+| | 地址 | 内容 | 谁维护 |
+|---|---|---|---|
+| 主源 | `gitee.com/wodegitee33/tv-live` | **只有** `live.m3u` + `README.md` | 本仓库 `live/` 目录的 subtree 推送 |
+| 兜底 | `github.com/Gathin23/cleanyourtv` | 整个开源项目 + `live/live.m3u` | 主仓库本身 |
+
+Gitee 那个仓库是**独立的小仓库**，只放列表，和 `suishoubao` / `hazard-collab` 那些私有项目完全隔离。
+它必须是**公开仓库** —— 盒子不带任何凭据，私有仓库的 raw 会返回登录页。
 
 ## 更新方法
 
@@ -45,21 +44,27 @@ cd F:\TV2
 # 2) 把盒子上"正在用"的那份抓回仓库（自动校验、不会拉错文件）
 .\tools\publish_live.ps1 -Box 192.168.2.134 -Commit
 
-# 3) 推上去，下次开机所有盒子自动生效
+# 3) 推主仓库
 git push
+
+# 4) 只把 live/ 这个目录推到 Gitee 小仓库（subtree，不会带上代码和文档）
+git subtree push --prefix=live gitee main
 ```
 
 `publish_live.ps1` 从播放器的 `shared_prefs` 里读 `IPTV_SOURCE_CURRENT` 的真实路径，
 所以不会像 `adb pull .../iptv-*.txt` 那样把一堆历史列表一起拉下来。
 
-推送后 jsDelivr 对 `@main` 有缓存（约 12 小时），盒子下次开机拿到的可能是缓存版本，
-最迟一天后生效。要立刻生效，可以在盒子上手动跑一次：
+**Gitee 没有 CDN 缓存，推完立刻生效**；GitHub 那条走 jsDelivr，`@main` 有约 12 小时缓存，
+所以正常情况下盒子拿到的是 Gitee 的新版本，根本用不到缓存。要立刻验证，可以在盒子上跑：
 
 ```powershell
 adb shell 'TV2_ONCE=1 sh /system/bin/tv2-maint.sh'
+adb logcat -d -s TV2_MAINT | tail -3
 ```
 
 ## 注意
 
-- 这个文件是 **LF** 结尾。用会改成 CRLF 的编辑器保存会让 `#EXTM3U` 那行带上 `\r`，校验会失败。
+- 这个文件是 **LF** 结尾。用会改成 CRLF 的编辑器保存会让 `#EXTM3U` 那行带上 `\r`。
+  （校验其实能容忍 `\r`，但保持 LF 更省事；`core.autocrlf=true` 只会影响本地检出，推上去的 blob 仍是 LF。）
 - 列表里的源都是公开源，不涉及任何隐私；但公共源会陆续失效，失效了就重跑第 1 步。
+- Gitee 的 raw 地址格式是 `/raw/<分支>/<路径>`，和 GitHub 的 `raw.githubusercontent.com` 不一样。
