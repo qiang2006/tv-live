@@ -36,6 +36,8 @@ http://38.75.136.137:98/gslb/dsdqpub/cctv5p.m3u8?auth=testpub
 #EXTINF:-1 tvg-name="CCTV5+" group-title="📺央视频道" tvg-logo="https://www.xn--rgv465a.top/tvlogo/CCTV-5+.png",CCTV5+
 http://38.75.136.137:98/gslb/dsdqbv/cctv5p.m3u8?auth=test20251009
 #EXTINF:-1 tvg-name="CCTV5+" group-title="📺央视频道" tvg-logo="https://www.xn--rgv465a.top/tvlogo/CCTV-5+.png",CCTV5+
+http://223.78.65.165:9901/tsfile/live/0006_1.m3u8?key=txiptv&playlive=1&authid=0
+#EXTINF:-1 tvg-name="CCTV5+" group-title="📺央视频道" tvg-logo="https://www.xn--rgv465a.top/tvlogo/CCTV-5+.png",CCTV5+
 http://120.76.248.139/live/bfgd/4200000246.m3u8
 #EXTINF:-1 tvg-name="CCTV6" group-title="📺央视频道" tvg-logo="https://www.xn--rgv465a.top/tvlogo/CCTV-6.png",CCTV6
 http://74.91.26.218:82/live/cctv6hd.m3u8
